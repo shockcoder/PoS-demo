@@ -55,7 +55,7 @@ func generateBlock(oldBlock Block, BPM int, address string) (Block, error) {
 	newBlock.Index = oldBlock.Index + 1
 	newBlock.Timestamp = t.String()
 	newBlock.BPM = BPM
-	newBlock.PrevHash = oldBlock.PrevHash
+	newBlock.PrevHash = oldBlock.Hash
 	newBlock.Hash = calculateBlockHash(newBlock)
 	newBlock.Validator = address
 
@@ -111,6 +111,7 @@ func handleConn(conn net.Conn) {
 	for scanBalance.Scan() {
 		//获取输入的数据，并将输入的值转为int
 		balance, err := strconv.Atoi(scanBalance.Text())
+		fmt.Println("input balance : ", balance)
 		if err != nil {
 			log.Printf("%v not a number: %v", scanBalance.Text(), err)
 		}
@@ -122,7 +123,7 @@ func handleConn(conn net.Conn) {
 		fmt.Println(validators)
 		break
 	}
-	io.WriteString(conn, "\n Enter a new BPM")
+	io.WriteString(conn, "\nEnter a new BPM: ")
 	scanBPM := bufio.NewScanner(conn)
 
 	go func() {
@@ -130,6 +131,7 @@ func handleConn(conn net.Conn) {
 			// 接收BPM 并将它加入到区块链中
 			for scanBPM.Scan() {
 				bpm, err := strconv.Atoi(scanBPM.Text())
+				fmt.Println("input BPM: ", bpm)
 				// 如果验证者试图提议一个伪造的block，例如包含一个不是整数的BPM， 那么程序会抛出错误
 				// 会立即从验证器列表validators中删除该验证者，不再有资格参与到新块的铸造同时丢失相应的tokens
 				if err != nil {
@@ -151,7 +153,8 @@ func handleConn(conn net.Conn) {
 				if isBlockValid(newBlock, oldLastIndex) {
 					candidateBlocks <- newBlock
 				}
-				io.WriteString(conn, "\n Enter anew BPM")
+				fmt.Println("validate the new block over")
+				io.WriteString(conn, "\nEnter anew BPM:")
 			}
 		}
 	}()
@@ -177,6 +180,7 @@ func pickWinner() {
 
 	lotteryPool := []string{}
 	if len(temp) > 0 {
+		fmt.Println("lottert begin------------------:")
 		// 小小的修改了传统的pos算法
 		// 传统的pos， 验证者可以在不不提交区块的情况下参与
 	OUTER:
@@ -207,6 +211,7 @@ func pickWinner() {
 		s := rand.NewSource(time.Now().Unix())
 		r := rand.New(s)
 		lotteryWinner := lotteryPool[r.Intn(r.Intn(len(lotteryPool)))]
+		fmt.Println("lottery winner: ", lotteryWinner)
 
 		// 把获胜者区块链添加到整条区块链上 然后通知所有节点关于获胜者的消息
 		for _, block := range temp {
@@ -214,7 +219,8 @@ func pickWinner() {
 				mutex.Lock()
 				Blockchain = append(Blockchain, block)
 				mutex.Unlock()
-				for _ := range validators {
+				for _ = range validators {
+					fmt.Println("==============>  Winner: ", lotteryWinner)
 					announcements <- "\nwinning validator: " + lotteryWinner + "\n"
 				}
 				break
